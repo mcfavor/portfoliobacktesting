@@ -12,10 +12,12 @@ if 'period' not in st.session_state:
     st.session_state['period'] = '1y'
 
 # Function to add a ticker with weight and full name
-def add_ticker(ticker, weight):
+def add_ticker(ticker, weight, period):
     try:
-        ticker_data = yf.Ticker(ticker)
-        full_name = ticker_data.info.get('longName', 'N/A')
+        data = yf.download(ticker, period=period)
+        if not data.empty:
+            ticker_data = yf.Ticker(ticker)
+            full_name = ticker_data.info.get('longName', 'N/A')
     except Exception as e:
         full_name = 'N/A'
         st.error(f"Error fetching data for {ticker}: {e}")
@@ -120,7 +122,7 @@ new_weight = st.sidebar.number_input("Add the Asset weight:", max_value=100)
 
 if st.sidebar.button("Add Ticker"):
     if new_ticker:
-        add_ticker(new_ticker, new_weight)
+        add_ticker(new_ticker, new_weight, st.session_state['period'])
 
 # Display added tickers in a table
 st.write("### Added Financial Instruments:")
