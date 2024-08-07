@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 import plotly.graph_objects as go
+import time
 
 # Initialize session state for storing tickers, weights, and names
 if 'tickers' not in st.session_state:
@@ -13,14 +14,26 @@ if 'period' not in st.session_state:
 
 # Function to add a ticker with weight and full name
 def add_ticker(ticker, weight, period):
-    try:
-        data = yf.download(ticker, period=period)
-        if not data.empty:
-            ticker_data = yf.Ticker(ticker)
-            full_name = ticker_data.info['longName']
-    except Exception as e:
-        full_name = 'N/A'
-        st.error(f"Error fetching data for {ticker}: {e}")
+    retries = 3
+    for attempt in range(retries):
+        try:
+            data = yf.download(ticker, period=period)
+            if not data.empty:
+                ticker_data = yf.Ticker(ticker)
+                full_name = ticker_data.info['longName']
+                break
+            else:
+                full_name = 'N/A'
+                st.error(f"Error fetching data for {ticker}: No historical data available")
+                return
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(2)
+                continue
+            else:
+                full_name = 'N/A'
+                st.error(f"Error fetching data for {ticker}: {e}")
+                return
     
     if ticker not in [t['Ticker'] for t in st.session_state['tickers']]:
         st.session_state['tickers'].append({'Ticker': ticker, 'Weight': weight, 'Full Name': full_name})
