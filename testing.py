@@ -15,7 +15,7 @@ if 'period' not in st.session_state:
 def add_ticker(ticker, weight):
     try:
         ticker_data = yf.Ticker(ticker)
-        full_name = ticker_data.info['longName']
+        full_name = ticker_data.info.get('longName', 'N/A')
     except Exception as e:
         full_name = 'N/A'
         st.error(f"Error fetching data for {ticker}: {e}")
