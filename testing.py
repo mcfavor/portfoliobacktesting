@@ -124,7 +124,7 @@ period = st.sidebar.selectbox(
 )
 
 # Input for risk-free rate
-risk_free_rate = st.sidebar.number_input("Risk-free rate (as a decimal):", value=0.03)
+risk_free_rate = st.sidebar.number_input("Risk-free rate (as a decimal):", value=0.05)
 initial_investment = st.sidebar.number_input('Initial Investment ($)', value=10000)
 
 benchmark_ticker = st.sidebar.text_input("Add the Benchmark ticker symbol:")
