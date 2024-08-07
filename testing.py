@@ -17,7 +17,7 @@ def add_ticker(ticker, weight, period):
         data = yf.download(ticker, period=period)
         if not data.empty:
             ticker_data = yf.Ticker(ticker)
-            full_name = ticker_data.info.get('longName', 'N/A')
+            full_name = ticker_data.info['longName']
     except Exception as e:
         full_name = 'N/A'
         st.error(f"Error fetching data for {ticker}: {e}")
