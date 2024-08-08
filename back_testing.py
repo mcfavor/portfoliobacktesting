@@ -9,6 +9,7 @@ import time
 # Initialize session state for storing tickers, weights, and names
 if 'tickers' not in st.session_state:
     st.session_state['tickers'] = []
+# Initialize session state for storing the period and start off from a year upwards
 if 'period' not in st.session_state:
     st.session_state['period'] = '1y'
 
