@@ -1,184 +1,192 @@
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-import plotly.express as px
-import numpy as np
-import plotly.graph_objects as go
-import time
+# Importing necessary libraries
+import streamlit as st              # Streamlit for creating the web app interface
+import yfinance as yf               # yfinance for fetching financial data
+import pandas as pd                 # pandas for data manipulation and analysis
+import plotly.express as px         # plotly.express for simple visualizations
+import numpy as np                  # numpy for numerical operations
+import plotly.graph_objects as go   # plotly.graph_objects for complex visualizations
+import time                         # time for adding delays in case of retries
 
-# Initialize session state for storing tickers, weights, and names
+# Initialize session state for storing tickers, weights, and names if they don't already exist
 if 'tickers' not in st.session_state:
     st.session_state['tickers'] = []
-# Initialize session state for storing the period and start off from a year upwards
+
+# Initialize session state for storing the period with a default of 1 year
 if 'period' not in st.session_state:
     st.session_state['period'] = '1y'
 
-# Function to add a ticker with weight and full name
+# Function to add a ticker along with its weight and full name for a certain period dynamically changed by the period in the session
 def add_ticker(ticker, weight, period):
-    retries = 3
+    retries = 3  # Number of retries for fetching data in case of errors when fetching the data from the yfinance library
     for attempt in range(retries):
         try:
-            data = yf.download(ticker, period=period)
-            if not data.empty:
-                ticker_data = yf.Ticker(ticker)
-                full_name = ticker_data.info['longName']
-                break
+            data = yf.download(ticker, period=period)  # Download historical data for the ticker
+            if not data.empty:  # Check if data is available
+                ticker_data = yf.Ticker(ticker)  # Fetch detailed ticker information
+                full_name = ticker_data.info['longName']  # Get the full name of the financial instrument
+                break  # Exit the loop if data is successfully fetched
             else:
-                full_name = 'N/A'
+                full_name = 'N/A'  # Set full name as 'N/A' if no data is available
                 st.error(f"Error fetching data for {ticker}: No historical data available")
-                return
-        except Exception as e:
-            if attempt < retries - 1:
-                time.sleep(2)
+                return  # Exit the function if no data is available
+        except Exception as e:  # Catch any exceptions during data fetching
+            if attempt < retries - 1:  # Retry if not the last attempt
+                time.sleep(2)  # Wait for 2 seconds before retrying
                 continue
             else:
-                full_name = 'N/A'
+                full_name = 'N/A'  # Set full name as 'N/A' if all retries fail
                 st.error(f"Error fetching data for {ticker}: {e}")
-                return
+                return  # Exit the function if all retries fail
     
+    # Add the ticker to the session state if it's not already present
     if ticker not in [t['Ticker'] for t in st.session_state['tickers']]:
         st.session_state['tickers'].append({'Ticker': ticker, 'Weight': weight, 'Full Name': full_name})
 
-# Function to remove a ticker
+# Function to remove a ticker from the session state
 def remove_ticker(ticker):
     st.session_state['tickers'] = [t for t in st.session_state['tickers'] if t['Ticker'] != ticker]
 
-# Function to check if weights sum up to 100
+# Function to check if the total weights of the tickers sum up to 100%
 def check_weights():
-    total_weight = sum(t['Weight'] for t in st.session_state['tickers'])
+    total_weight = sum(t['Weight'] for t in st.session_state['tickers'])  # Sum all weights
     return total_weight
 
 # Function to calculate portfolio statistics
 def calculate_portfolio_statistics(period, risk_free_rate):
-    tickers = [t['Ticker'] for t in st.session_state['tickers']]
-    weights = [t['Weight'] / 100 for t in st.session_state['tickers']]
-    data = yf.download(tickers, period=period)['Adj Close']
-    returns = data.pct_change().dropna()
-    cov_matrix = returns.cov()
-    port_variance = np.dot(weights, np.dot(cov_matrix, weights))
-    port_std_dev = np.sqrt(port_variance)
+    tickers = [t['Ticker'] for t in st.session_state['tickers']]  # Get the list of tickers
+    weights = [t['Weight'] / 100 for t in st.session_state['tickers']]  # Convert weights to decimal
+    data = yf.download(tickers, period=period)['Adj Close']  # Download adjusted closing prices for the tickers
+    returns = data.pct_change().dropna()  # Calculate daily returns and drop missing values
+    cov_matrix = returns.cov()  # Calculate the covariance matrix of returns
+    port_variance = np.dot(weights, np.dot(cov_matrix, weights))  # Calculate portfolio variance
+    port_std_dev = np.sqrt(port_variance)  # Calculate portfolio standard deviation
 
-    annualized_returns = (1 + returns.mean()) ** 252 - 1  # Assuming 252 trading days in a year
-    port_annualized_return = np.dot(weights, annualized_returns)
+    annualized_returns = (1 + returns.mean()) ** 252 - 1  # Calculate annualized returns assuming 252 trading days
+    port_annualized_return = np.dot(weights, annualized_returns)  # Calculate portfolio annualized return
 
-    # Calculate Sharpe Ratio
+    # Calculate Sharpe Ratio (return-to-risk ratio)
     sharpe_ratio = (port_annualized_return - risk_free_rate) / port_std_dev
 
     return port_variance, port_std_dev, port_annualized_return, sharpe_ratio
 
-# Define the function to fetch data and calculate portfolio value
+# Function to fetch data and calculate portfolio value over time
 def calculate_portfolio_value(initial_investment, period):
-    tickers = [t['Ticker'] for t in st.session_state['tickers']]
-    weights = {t['Ticker']: t['Weight'] / 100 for t in st.session_state['tickers']}
+    tickers = [t['Ticker'] for t in st.session_state['tickers']]  # Get the list of tickers
+    weights = {t['Ticker']: t['Weight'] / 100 for t in st.session_state['tickers']}  # Convert weights to decimal
 
-    # Download historical data
+    # Download historical adjusted closing prices for the tickers
     data = yf.download(tickers, period=period)['Adj Close']
 
     # Calculate daily returns
     daily_returns = data.pct_change().dropna()
 
-    # Calculate cumulative returns
+    # Calculate cumulative returns over time
     cumulative_returns = (1 + daily_returns).cumprod()
 
-    # Calculate portfolio cumulative returns
+    # Calculate portfolio cumulative returns based on weights
     portfolio_cumulative_returns = (cumulative_returns * pd.Series(weights)).sum(axis=1)
 
-    # Calculate the portfolio value over time
+    # Calculate the portfolio value over time based on initial investment
     portfolio_value = initial_investment * portfolio_cumulative_returns
 
     return portfolio_value
 
-# Function to calculate benchmark value
+# Function to calculate benchmark value over time
 def calculate_benchmark_value(initial_investment, benchmark_ticker, period):
-    # Download historical data
+    # Download historical adjusted closing prices for the benchmark ticker
     benchmark_data = yf.download(benchmark_ticker, period=period)['Adj Close']
 
-    # Calculate daily returns
+    # Calculate daily returns for the benchmark
     benchmark_daily_returns = benchmark_data.pct_change().dropna()
 
-    # Calculate cumulative returns
+    # Calculate cumulative returns for the benchmark
     benchmark_cumulative_returns = (1 + benchmark_daily_returns).cumprod()
 
-    # Calculate the benchmark value over time
+    # Calculate the benchmark value over time based on initial investment
     benchmark_value = initial_investment * benchmark_cumulative_returns
 
     return benchmark_value
 
-# Function to calculate annual portfolio returns
+# Function to calculate annual returns from a series of portfolio values
 def calculate_annual_returns(value_series):
-    annual_returns = value_series.resample('Y').last().pct_change().dropna()
+    annual_returns = value_series.resample('Y').last().pct_change().dropna()  # Resample to yearly frequency and calculate returns
     return annual_returns
 
-# Streamlit app
+# Streamlit app interface
 st.write("""
 # Backtest Portfolio Asset Class Allocation
 
 ##### This portfolio backtesting tool allows you to construct one portfolio based on the selected mutual funds, ETFs, and stocks. You can analyze and backtest portfolio return and risk characteristics.
-
 """)
 
-# Dropdown for selecting period
+# Sidebar dropdown for selecting the period of historical data
 period = st.sidebar.selectbox(
     "Select the period for historical data:",
     ('1y', '2y', '5y', '10y', 'ytd', 'max'),
-    key='period'
+    key='period'  # Store the selected period in session state
 )
 
-# Input for risk-free rate
+# Sidebar input for risk-free rate
 risk_free_rate = st.sidebar.number_input("Risk-free rate (as a decimal):", value=0.05)
+
+# Sidebar input for initial investment amount
 initial_investment = st.sidebar.number_input('Initial Investment ($)', value=10000)
 
+# Sidebar input for adding a benchmark ticker
 benchmark_ticker = st.sidebar.text_input("Add the Benchmark ticker symbol:")
 
-# Input for adding a new ticker
+# Sidebar input for adding a new ticker symbol
 new_ticker = st.sidebar.text_input("Add the Asset ticker symbol:")
+
+# Sidebar input for adding the weight of the new ticker
 new_weight = st.sidebar.number_input("Add the Asset weight:", max_value=100)
 
+# Button to add the ticker to the portfolio
 if st.sidebar.button("Add Ticker"):
-    if new_ticker:
-        add_ticker(new_ticker, new_weight, st.session_state['period'])
+    if new_ticker:  # Ensure a ticker symbol is provided
+        add_ticker(new_ticker, new_weight, st.session_state['period'])  # Add ticker to the portfolio
 
-# Display added tickers in a table
+# Display the added tickers in a table
 st.write("### Added Financial Instruments:")
-if st.session_state['tickers']:
-    tickers_df = pd.DataFrame(st.session_state['tickers'])
-    tickers_df.loc['Total'] = tickers_df.sum(numeric_only=True)
-    tickers_df.at['Total', 'Ticker'] = 'Total'
-    tickers_df.at['Total', 'Full Name'] = ''
-    st.table(tickers_df)
+if st.session_state['tickers']:  # Check if there are any tickers added
+    tickers_df = pd.DataFrame(st.session_state['tickers'])  # Convert tickers to a DataFrame
+    tickers_df.loc['Total'] = tickers_df.sum(numeric_only=True)  # Add a row for the total weights
+    tickers_df.at['Total', 'Ticker'] = 'Total'  # Label the total row
+    tickers_df.at['Total', 'Full Name'] = ''  # Leave the full name empty for the total row
+    st.table(tickers_df)  # Display the table in the Streamlit app
 
-    total_weight = check_weights()
-    if total_weight != 100:
+    total_weight = check_weights()  # Check if the total weights sum up to 100%
+    if total_weight != 100:  # Display a warning if they don't
         st.warning(f"Total asset weights must sum up to 100. Current total: {total_weight}")
 
-    # Select ticker to remove
+    # Sidebar dropdown to select a ticker to remove
     ticker_to_remove = st.sidebar.selectbox("Select a ticker to remove:", [t['Ticker'] for t in st.session_state['tickers']])
-    if st.sidebar.button("Remove Ticker"):
+    if st.sidebar.button("Remove Ticker"):  # Button to remove the selected ticker
         if ticker_to_remove:
-            remove_ticker(ticker_to_remove)
+            remove_ticker(ticker_to_remove)  # Remove the selected ticker
 
-    # Assuming tickers_df is your DataFrame
-    weights = tickers_df[:-1]['Weight'].astype(float)  # Exclude the total row
-    labels = tickers_df[:-1]['Ticker']
+    # Prepare data for a pie chart of asset allocation
+    weights = tickers_df[:-1]['Weight'].astype(float)  # Exclude the total row and convert weights to float
+    labels = tickers_df[:-1]['Ticker']  # Exclude the total row and get the ticker symbols
 
     st.write("### Asset Allocation:")
 
     # Create a pie chart using Plotly
     fig = px.pie(values=weights, names=labels, hole=0.3)
 
-    # Display the chart in Streamlit
+    # Display the pie chart in Streamlit
     st.plotly_chart(fig)
 
     # Calculate and display portfolio statistics
     port_variance, port_std_dev, port_annualized_return, sharpe_ratio = calculate_portfolio_statistics(st.session_state['period'], risk_free_rate)
 
-    # Calculate portfolio value
+    # Button to run the backtest analysis
     if st.button('Run Backtest Analysis'):
-        with st.spinner('Running Backtest Analysis'):
-            portfolio_value = calculate_portfolio_value(initial_investment, period)
-            benchmark_value = calculate_benchmark_value(initial_investment, benchmark_ticker, period)
+        with st.spinner('Running Backtest Analysis'):  # Display a spinner while the analysis is running
+            portfolio_value = calculate_portfolio_value(initial_investment, period)  # Calculate portfolio value over time
+            benchmark_value = calculate_benchmark_value(initial_investment, benchmark_ticker, period)  # Calculate benchmark value over time
 
-            # Calculate annual returns for portfolio and benchmark
+            # Calculate annual returns for both portfolio and benchmark
             annual_portfolio_returns = calculate_annual_returns(portfolio_value)
             annual_benchmark_returns = calculate_annual_returns(benchmark_value)
 
@@ -188,7 +196,7 @@ if st.session_state['tickers']:
                 'Benchmark': annual_benchmark_returns
             }).reset_index()
 
-            # Plot the portfolio and benchmark value over time using st.line_chart
+            # Combine portfolio and benchmark values into a DataFrame for plotting
             combined_values = pd.DataFrame({
                 'Portfolio': portfolio_value,
                 'Benchmark': benchmark_value
@@ -200,9 +208,10 @@ if st.session_state['tickers']:
 
         st.write("### Portfolio Growth vs Benchmark Growth")
 
+        # Plot the portfolio and benchmark growth over time
         st.line_chart(combined_values, x_label="Year", y_label="Amount ($)")
 
-        # Plot the annual returns using Plotly to create a grouped bar chart
+        # Plot the annual returns using a grouped bar chart
         st.write("### Portfolio Annual Returns vs Benchmark Annual Returns")
         fig = go.Figure()
         fig.add_trace(go.Bar(
@@ -219,16 +228,17 @@ if st.session_state['tickers']:
         fig.update_layout(
             xaxis_title='Year',
             yaxis_title='Return',
-            barmode='group'
+            barmode='group'  # Group bars together
         )
 
         st.plotly_chart(fig)
 
         st.write("### Portfolio Statistics:")
+        # Display portfolio statistics in a table
         stats_df = pd.DataFrame({
             'Metric': ['Variance', 'Standard Deviation', 'Annualized Return', 'Sharpe Ratio'],
             'Value': [port_variance, port_std_dev, port_annualized_return, sharpe_ratio]
         })
         st.table(stats_df)
 else:
-    st.write("No tickers added yet.")
+    st.write("No tickers added yet.")  # Display message if no tickers are added
