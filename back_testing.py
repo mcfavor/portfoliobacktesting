@@ -24,8 +24,7 @@ def add_ticker(ticker, weight, period):
             if not data.empty:  # Check if data is available
                 ticker_data = yf.Ticker(ticker)  # Fetch detailed ticker information
                 full_name = ticker_data.info['longName']  # Get the full name of the financial instrument
-                # Extract the asset class
-                asset_class = ticker_data.info['quoteType']
+                asset_class = ticker_data.info['quoteType'] # Extract the asset class
                 break  # Exit the loop if data is successfully fetched
             else:
                 full_name = 'N/A'  # Set full name as 'N/A' if no data is available
