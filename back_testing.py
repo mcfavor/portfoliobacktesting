@@ -24,6 +24,8 @@ def add_ticker(ticker, weight, period):
             if not data.empty:  # Check if data is available
                 ticker_data = yf.Ticker(ticker)  # Fetch detailed ticker information
                 full_name = ticker_data.info['longName']  # Get the full name of the financial instrument
+                # Extract the asset class
+                asset_class = ticker_data.info['quoteType']
                 break  # Exit the loop if data is successfully fetched
             else:
                 full_name = 'N/A'  # Set full name as 'N/A' if no data is available
@@ -40,7 +42,7 @@ def add_ticker(ticker, weight, period):
     
     # Add the ticker to the session state if it's not already present
     if ticker not in [t['Ticker'] for t in st.session_state['tickers']]:
-        st.session_state['tickers'].append({'Ticker': ticker, 'Weight': weight, 'Full Name': full_name})
+        st.session_state['tickers'].append({'Ticker': ticker, 'Weight': weight, 'Full Name': full_name, 'Asset Class': asset_class})
 
 # Function to remove a ticker from the session state
 def remove_ticker(ticker):
