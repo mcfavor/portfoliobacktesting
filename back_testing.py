@@ -213,20 +213,22 @@ if st.session_state['tickers']:  # Check if there are any tickers added
     weights = tickers_df[:-1]['Weight'].astype(float)  # Exclude the total row and convert weights to float
     labels = tickers_df[:-1]['Ticker']  # Exclude the total row and get the ticker symbols
 
-    st.write("### Asset Allocation:")
-
-    # Create a pie chart using Plotly
-    fig = px.pie(values=weights, names=labels, hole=0.3)
-
-    # Display the pie chart in Streamlit
-    st.plotly_chart(fig)
-
-    # Calculate and display portfolio statistics
-    port_variance, port_std_dev, port_annualized_return, sharpe_ratio = calculate_portfolio_statistics(st.session_state['period'], risk_free_rate)
+    
 
     # Button to run the backtest analysis
     if st.button('Run Backtest Analysis'):
         with st.spinner('Running Backtest Analysis'):  # Display a spinner while the analysis is running
+
+            st.write("### Asset Allocation:")
+
+            # Create a pie chart using Plotly
+            fig = px.pie(values=weights, names=labels, hole=0.3)
+
+            # Display the pie chart in Streamlit
+            st.plotly_chart(fig)
+
+            # Calculate and display portfolio statistics
+            port_variance, port_std_dev, port_annualized_return, sharpe_ratio = calculate_portfolio_statistics(st.session_state['period'], risk_free_rate)
             portfolio_value = calculate_portfolio_value(initial_investment, period)  # Calculate portfolio value over time
             benchmark_value = calculate_benchmark_value(initial_investment, benchmark_ticker, period)  # Calculate benchmark value over time
 
