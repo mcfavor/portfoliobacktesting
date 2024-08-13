@@ -11,6 +11,10 @@ import time                         # time for adding delays in case of retries
 if 'tickers' not in st.session_state:
     st.session_state['tickers'] = []
 
+# Initialize session state for storing tickers, weights, and names if they don't already exist
+if 'benchmark' not in st.session_state:
+    st.session_state['benchmark'] = []
+
 # Initialize session state for storing the period with a default of 1 year
 if 'period' not in st.session_state:
     st.session_state['period'] = '1y'
@@ -42,6 +46,34 @@ def add_ticker(ticker, weight, period):
     # Add the ticker to the session state if it's not already present
     if ticker not in [t['Ticker'] for t in st.session_state['tickers']]:
         st.session_state['tickers'].append({'Ticker': ticker, 'Weight': weight, 'Full Name': full_name, 'Asset Class': asset_class})
+
+
+# Function to add a benchmark ticker along with its weight and full name for a certain period dynamically changed by the period in the session
+def add_benchmark(benchmark_ticker, period):
+    retries = 3  # Number of retries for fetching data in case of errors when fetching the data from the yfinance library
+    for attempt in range(retries):
+        try:
+            data = yf.download(benchmark_ticker, period=period)  # Download historical data for the ticker
+            if not data.empty:  # Check if data is available
+                ticker_data = yf.Ticker(benchmark_ticker)  # Fetch detailed ticker information
+                full_name = ticker_data.info['longName']  # Get the full name of the financial instrument
+                asset_class = ticker_data.info['quoteType'] # Extract the asset class
+                break  # Exit the loop if data is successfully fetched
+            else:
+                full_name = 'N/A'  # Set full name as 'N/A' if no data is available
+                st.error(f"Error fetching data for {benchmark_ticker}: No historical data available")
+                return  # Exit the function if no data is available
+        except Exception as e:  # Catch any exceptions during data fetching
+            if attempt < retries - 1:  # Retry if not the last attempt
+                time.sleep(2)  # Wait for 2 seconds before retrying
+                continue
+            else:
+                full_name = 'N/A'  # Set full name as 'N/A' if all retries fail
+                st.error(f"Error fetching data for {benchmark_ticker}: {e}")
+                return  # Exit the function if all retries fail
+            
+    if benchmark_ticker not in [t['benchmark'] for t in st.session_state['tickers']]:
+        st.session_state['benchmark'].append({'Benchmark Ticker': benchmark_ticker, 'Full Name': full_name, 'Asset Class': asset_class})
 
 # Function to remove a ticker from the session state
 def remove_ticker(ticker):
@@ -135,6 +167,17 @@ initial_investment = st.sidebar.number_input('Initial Investment ($)', value=100
 
 # Sidebar input for adding a benchmark ticker
 benchmark_ticker = st.sidebar.text_input("Add the Benchmark ticker symbol:")
+
+if st.sidebar.button("Add Benchmark"):
+    if benchmark_ticker:
+        add_benchmark(benchmark_ticker, st.session_state['period'])
+
+
+#Display the added benchmark in a table
+st.write("### Added Benchmark:")
+if st.session_state['benchmark']:
+    benchmark_tickers_df = pd.DataFrame(st.session_state['benchmark'])
+    st.table(benchmark_tickers_df)
 
 # Sidebar input for adding a new ticker symbol
 new_ticker = st.sidebar.text_input("Add the Asset ticker symbol:")
